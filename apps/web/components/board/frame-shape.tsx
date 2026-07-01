@@ -35,55 +35,49 @@ export function FrameShape({
   onGroupDragMove,
 }: FrameShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
+  const rectRef = useRef<Konva.Rect>(null);
   const trRef = useRef<Konva.Transformer>(null);
-  const fillRectRef = useRef<Konva.Rect>(null);
-  const borderRectRef = useRef<Konva.Rect>(null);
 
-  // Uncontrolled size after mount, same rationale as ScreenshotCard: Konva
-  // owns the live transform during drag/resize, React state only mirrors it
-  // for the sibling Rect/Text so they redraw with the new dimensions.
+  // Uncontrolled after mount: the Transformer's target (the Rect itself) owns
+  // its live width/height/scale during a resize; React state only mirrors the
+  // committed value once the gesture ends.
   const [size, setSize] = useState({ width: frame.width, height: frame.height });
-  // Tracks the size computed on the most recent onTransform tick, so
-  // onTransformEnd can commit it without re-deriving from scale (which this
-  // component already resets to 1 on every tick — see handleTransform).
-  const liveSizeRef = useRef(size);
 
   useEffect(() => {
-    if (isSelected && groupRef.current && trRef.current) {
-      trRef.current.nodes([groupRef.current]);
+    // Attach the Transformer to the Rect, NOT the wrapping Group — a Group's
+    // size is derived from its children, which made Konva's own resize math
+    // (position correction for top/left anchors) drift as we mutated those
+    // children mid-drag. A plain Rect has native width()/height() that Konva
+    // is built to resize directly, so it stays stable throughout the drag.
+    if (isSelected && rectRef.current && trRef.current) {
+      trRef.current.nodes([rectRef.current]);
       trRef.current.getLayer()?.batchDraw();
     }
   }, [isSelected]);
 
-  function handleTransform() {
-    const node = groupRef.current;
-    if (!node) return;
-
-    // Konva's Transformer resizes by scaling the whole node, which would
-    // stretch the dashed stroke and the label text for the duration of the
-    // drag. Convert scale -> width/height on every tick (not only at the
-    // end) so only the rect grows — the recommended pattern for resizable
-    // Konva shapes.
-    const width = Math.max(FRAME_MIN_WIDTH, size.width * node.scaleX());
-    const height = Math.max(FRAME_MIN_HEIGHT, size.height * node.scaleY());
-    node.scaleX(1);
-    node.scaleY(1);
-
-    fillRectRef.current?.width(width);
-    fillRectRef.current?.height(height);
-    borderRectRef.current?.width(width);
-    borderRectRef.current?.height(height);
-    liveSizeRef.current = { width, height };
-    node.getLayer()?.batchDraw();
-  }
-
   function handleTransformEnd() {
-    const node = groupRef.current;
-    if (!node) return;
+    const group = groupRef.current;
+    const rect = rectRef.current;
+    if (!group || !rect) return;
 
-    const { width, height } = liveSizeRef.current;
+    const width = Math.max(FRAME_MIN_WIDTH, rect.width() * rect.scaleX());
+    const height = Math.max(FRAME_MIN_HEIGHT, rect.height() * rect.scaleY());
+    // Resizing from a top/left anchor also shifts the Rect's own local x/y
+    // (to keep the opposite corner fixed) — fold that into the Group's
+    // absolute position and reset the Rect back to (0,0)/scale 1, so
+    // frame.x/y keeps meaning "the box's absolute top-left" everywhere else
+    // (persistence, the contained-screenshots bounds check).
+    const x = group.x() + rect.x();
+    const y = group.y() + rect.y();
+
+    rect.position({ x: 0, y: 0 });
+    rect.scale({ x: 1, y: 1 });
+    rect.width(width);
+    rect.height(height);
+    group.position({ x, y });
+
     setSize({ width, height });
-    onChange(frame.id, node.x(), node.y(), width, height);
+    onChange(frame.id, x, y, width, height);
   }
 
   function handleDragEnd() {
@@ -118,26 +112,18 @@ export function FrameShape({
           onGroupDragMove(frame, e.target.x() - frame.x, e.target.y() - frame.y);
         }}
         onDragEnd={handleDragEnd}
-        onTransform={handleTransform}
-        onTransformEnd={handleTransformEnd}
       >
         <Rect
-          ref={fillRectRef}
+          ref={rectRef}
           width={size.width}
           height={size.height}
-          fill={theme.mutedForeground}
-          opacity={0.08}
-          cornerRadius={CORNER_RADIUS}
-        />
-        <Rect
-          ref={borderRectRef}
-          width={size.width}
-          height={size.height}
-          fillEnabled={false}
-          stroke={isSelected ? theme.primary : theme.border}
+          fill={theme.border}
+          stroke={isSelected ? theme.primary : theme.mutedForeground}
           strokeWidth={isSelected ? 2 : 1}
+          strokeScaleEnabled={false}
           dash={[6, 4]}
           cornerRadius={CORNER_RADIUS}
+          onTransformEnd={handleTransformEnd}
         />
         <Text
           text={frame.name}
