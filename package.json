@@ -5,10 +5,13 @@
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
     "lint": "pnpm -r lint",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,mjs,css,json}\" \"packages/**/*.ts\" \"*.{json,mjs}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,mjs,css,json}\" \"packages/**/*.ts\" \"*.{json,mjs}\"",
     "db:migrate": "pnpm --filter @s-shoter/db exec prisma migrate dev",
     "db:generate": "pnpm --filter @s-shoter/db exec prisma generate"
   },
   "devDependencies": {
+    "prettier": "^3.9.4",
     "typescript": "^5.7.0"
   }
 }

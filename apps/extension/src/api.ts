@@ -76,7 +76,10 @@ export async function uploadScreenshot(
   if (!res.ok) throw new Error("Не удалось сохранить скриншот");
 }
 
-export async function fetchAuthorizedImageUrl(token: string, relativePath: string): Promise<string> {
+export async function fetchAuthorizedImageUrl(
+  token: string,
+  relativePath: string,
+): Promise<string> {
   const res = await authFetch(`${API_BASE_URL}${relativePath}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

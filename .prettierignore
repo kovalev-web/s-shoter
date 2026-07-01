@@ -1,0 +1,23 @@
+# Dependencies & build output
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+out
+build
+
+# Generated / vendored
+pnpm-lock.yaml
+packages/db/prisma/migrations
+apps/web/storage
+**/*.db
+
+# Binary & static assets
+**/public
+**/*.svg
+**/*.ico
+
+# Hand-written docs — keep their intentional formatting
+*.md

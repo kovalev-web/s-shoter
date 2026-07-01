@@ -22,7 +22,11 @@ export function GridOverlay({ stageRef, dotColor }: GridOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let prevX = 0, prevY = 0, prevScale = 0, prevW = 0, prevH = 0;
+    let prevX = 0,
+      prevY = 0,
+      prevScale = 0,
+      prevW = 0,
+      prevH = 0;
     let animId: number;
 
     function draw() {
@@ -40,17 +44,15 @@ export function GridOverlay({ stageRef, dotColor }: GridOverlayProps) {
       const w = stage.width();
       const h = stage.height();
 
-      if (
-        prevX === pos.x &&
-        prevY === pos.y &&
-        prevScale === scale &&
-        prevW === w &&
-        prevH === h
-      ) {
+      if (prevX === pos.x && prevY === pos.y && prevScale === scale && prevW === w && prevH === h) {
         animId = requestAnimationFrame(draw);
         return;
       }
-      prevX = pos.x; prevY = pos.y; prevScale = scale; prevW = w; prevH = h;
+      prevX = pos.x;
+      prevY = pos.y;
+      prevScale = scale;
+      prevW = w;
+      prevH = h;
 
       const dpr = window.devicePixelRatio || 1;
       canvas.width = w * dpr;
@@ -95,10 +97,5 @@ export function GridOverlay({ stageRef, dotColor }: GridOverlayProps) {
     return () => cancelAnimationFrame(animId);
   }, [stageRef, dotColor]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none absolute inset-0"
-    />
-  );
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" />;
 }

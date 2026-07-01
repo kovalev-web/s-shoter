@@ -68,7 +68,11 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!ALLOWED_SCREENSHOT_MIME_TYPES.includes(file.type as (typeof ALLOWED_SCREENSHOT_MIME_TYPES)[number])) {
+  if (
+    !ALLOWED_SCREENSHOT_MIME_TYPES.includes(
+      file.type as (typeof ALLOWED_SCREENSHOT_MIME_TYPES)[number],
+    )
+  ) {
     return NextResponse.json(
       { error: { code: "INVALID_MIME", message: "Only PNG/JPEG images are allowed" } },
       { status: 400 },

@@ -56,7 +56,10 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
     const CARD_H = 160;
     const PADDING = 100;
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const s of screenshots) {
       if (s.boardX < minX) minX = s.boardX;
       if (s.boardY < minY) minY = s.boardY;
@@ -129,7 +132,11 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedIdRef.current && !isDeletingRef.current) {
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedIdRef.current &&
+        !isDeletingRef.current
+      ) {
         handleDelete(selectedIdRef.current);
       }
     }
@@ -160,9 +167,7 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
   }
 
   function handleCardDragEnd(id: string, x: number, y: number) {
-    setScreenshots((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, boardX: x, boardY: y } : s)),
-    );
+    setScreenshots((prev) => prev.map((s) => (s.id === id ? { ...s, boardX: x, boardY: y } : s)));
     schedulePositionSave(id, x, y);
   }
 
@@ -221,14 +226,8 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
       const cx = viewport.width / 2;
       const cy = viewport.height / 2;
       const offset = (cascadeCount.current % 10) * 40;
-      body.append(
-        "boardX",
-        String(Math.round((cx - stage.x()) / stage.scaleX() - 110 + offset)),
-      );
-      body.append(
-        "boardY",
-        String(Math.round((cy - stage.y()) / stage.scaleY() - 80 + offset)),
-      );
+      body.append("boardX", String(Math.round((cx - stage.x()) / stage.scaleX() - 110 + offset)));
+      body.append("boardY", String(Math.round((cy - stage.y()) / stage.scaleY() - 80 + offset)));
       cascadeCount.current++;
     }
 

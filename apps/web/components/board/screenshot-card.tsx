@@ -22,7 +22,14 @@ interface ScreenshotCardProps {
   onOpen: (screenshot: ScreenshotDto) => void;
 }
 
-export function ScreenshotCard({ screenshot, theme, isSelected, onDragEnd, onSelect, onOpen }: ScreenshotCardProps) {
+export function ScreenshotCard({
+  screenshot,
+  theme,
+  isSelected,
+  onDragEnd,
+  onSelect,
+  onOpen,
+}: ScreenshotCardProps) {
   const [image] = useImage(screenshot.imageUrl, "anonymous");
   const dragMoved = useRef(false);
 
