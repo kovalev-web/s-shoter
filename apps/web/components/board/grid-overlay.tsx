@@ -22,14 +22,19 @@ export function GridOverlay({ stageRef, dotColor }: GridOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const stage = stageRef.current;
-    if (!canvas || !stage) return;
-
     let prevX = 0, prevY = 0, prevScale = 0, prevW = 0, prevH = 0;
     let animId: number;
 
     function draw() {
+      // Read the refs each frame: they may not be mounted on the first frame,
+      // and reading here keeps the null-narrowing valid inside this closure.
+      const stage = stageRef.current;
+      const canvas = canvasRef.current;
+      if (!stage || !canvas) {
+        animId = requestAnimationFrame(draw);
+        return;
+      }
+
       const scale = stage.scaleX();
       const pos = stage.position();
       const w = stage.width();

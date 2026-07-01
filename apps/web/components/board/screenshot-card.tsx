@@ -37,14 +37,14 @@ export function ScreenshotCard({ screenshot, theme, isSelected, onDragEnd, onSel
     drawHeight = image.height * fitScale;
   }
 
-  function handleClick(e: Konva.KonvaEventObject<MouseEvent>) {
+  function handleClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (!dragMoved.current) {
       e.cancelBubble = true;
       onSelect(screenshot);
     }
   }
 
-  function handleDblClick(e: Konva.KonvaEventObject<MouseEvent>) {
+  function handleDblClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     e.cancelBubble = true;
     onOpen(screenshot);
   }

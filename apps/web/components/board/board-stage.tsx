@@ -202,7 +202,7 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
     if (e.target !== e.target.getStage()) return;
   }
 
-  function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
+  function handleStageClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     // Снять выделение при клике на пустое место (не на карточку)
     if (e.target === e.target.getStage() || e.target.name() === "stage-layer") {
       setSelectedId(null);
