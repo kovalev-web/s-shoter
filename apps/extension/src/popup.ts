@@ -56,7 +56,7 @@ async function renderMain(token: string) {
     <div class="flex items-center justify-between">
       <span id="today-count" class="text-sm font-medium">Сегодня: …</span>
       <div class="flex items-center gap-3">
-        <button id="open-board" class="text-xs text-muted-foreground underline underline-offset-4">Доска</button>
+        <button id="open-board" class="text-xs text-muted-foreground underline underline-offset-4">Доски</button>
         <button id="logout" class="text-xs text-muted-foreground underline underline-offset-4">Выйти</button>
       </div>
     </div>

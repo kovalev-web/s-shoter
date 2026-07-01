@@ -3,4 +3,4 @@
 // public/manifest.json) — both the API calls and the board link follow it.
 export const API_BASE_URL = "http://localhost:3000";
 
-export const BOARD_URL = `${API_BASE_URL}/board`;
+export const BOARD_URL = `${API_BASE_URL}/boards`;

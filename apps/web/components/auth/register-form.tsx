@@ -61,7 +61,7 @@ export function RegisterForm() {
         }
         return;
       }
-      router.push(routes.board);
+      router.push(routes.boards);
       router.refresh();
     } finally {
       setIsSubmitting(false);

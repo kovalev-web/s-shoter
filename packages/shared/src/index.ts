@@ -16,6 +16,7 @@ export const screenshotUploadFieldsSchema = z.object({
   sourceUrl: z.string().url(),
   pageTitle: z.string().min(1),
   capturedAt: z.string().min(1),
+  boardId: z.string().min(1).optional(),
   boardX: z.coerce.number().optional(),
   boardY: z.coerce.number().optional(),
 });
@@ -35,6 +36,7 @@ export const FRAME_MIN_WIDTH = 160;
 export const FRAME_MIN_HEIGHT = 100;
 
 export const frameCreateSchema = z.object({
+  boardId: z.string().min(1),
   name: z.string().min(1).max(60),
   x: z.number(),
   y: z.number(),
@@ -51,3 +53,13 @@ export const framePatchSchema = z.object({
   height: z.number().min(FRAME_MIN_HEIGHT).optional(),
 });
 export type FramePatchInput = z.infer<typeof framePatchSchema>;
+
+export const boardCreateSchema = z.object({
+  name: z.string().min(1).max(60),
+});
+export type BoardCreateInput = z.infer<typeof boardCreateSchema>;
+
+export const boardPatchSchema = z.object({
+  name: z.string().min(1).max(60),
+});
+export type BoardPatchInput = z.infer<typeof boardPatchSchema>;

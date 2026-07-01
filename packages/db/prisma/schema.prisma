@@ -14,12 +14,32 @@ model User {
   createdAt    DateTime     @default(now())
   screenshots  Screenshot[]
   frames       Frame[]
+  boards       Board[]
+}
+
+// Один аудит/проект = одна доска. Пользователь заводит новую доску под
+// каждую конкурентную задачу вместо одной бесконечной свалки (см. SPEC §12).
+model Board {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+
+  createdAt   DateTime     @default(now())
+
+  screenshots Screenshot[]
+  frames      Frame[]
+
+  @@index([userId])
 }
 
 model Screenshot {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boardId     String
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   // файл
   storageKey  String   @unique
@@ -40,6 +60,7 @@ model Screenshot {
   createdAt   DateTime @default(now())
 
   @@index([userId, capturedAt])
+  @@index([boardId])
 }
 
 // Именованная зона на доске для визуальной группировки скриншотов при
@@ -49,6 +70,8 @@ model Frame {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   name      String
   x         Float
@@ -59,4 +82,5 @@ model Frame {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([boardId])
 }

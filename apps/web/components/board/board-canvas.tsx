@@ -10,10 +10,17 @@ const BoardStage = dynamic(
 );
 
 interface BoardCanvasProps {
+  boardId: string;
   initialScreenshots: ScreenshotDto[];
   initialFrames: FrameDto[];
 }
 
-export function BoardCanvas({ initialScreenshots, initialFrames }: BoardCanvasProps) {
-  return <BoardStage initialScreenshots={initialScreenshots} initialFrames={initialFrames} />;
+export function BoardCanvas({ boardId, initialScreenshots, initialFrames }: BoardCanvasProps) {
+  return (
+    <BoardStage
+      boardId={boardId}
+      initialScreenshots={initialScreenshots}
+      initialFrames={initialFrames}
+    />
+  );
 }

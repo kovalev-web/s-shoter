@@ -28,8 +28,17 @@ export async function GET(req: Request) {
   const userId = await getCurrentUserId(req);
   if (!userId) return unauthorized();
 
+  const { searchParams } = new URL(req.url);
+  const boardId = searchParams.get("boardId");
+  if (!boardId) {
+    return NextResponse.json(
+      { error: { code: "VALIDATION_ERROR", message: "Missing boardId" } },
+      { status: 400 },
+    );
+  }
+
   const screenshots = await prisma.screenshot.findMany({
-    where: { userId },
+    where: { userId, boardId },
     orderBy: { capturedAt: "desc" },
   });
 
@@ -53,6 +62,7 @@ export async function POST(req: Request) {
     sourceUrl: form.get("sourceUrl"),
     pageTitle: form.get("pageTitle"),
     capturedAt: form.get("capturedAt"),
+    boardId: form.get("boardId"),
     boardX: form.get("boardX"),
     boardY: form.get("boardY"),
   });
@@ -66,6 +76,32 @@ export async function POST(req: Request) {
       },
       { status: 400 },
     );
+  }
+
+  // The web client always knows which board it's on. The extension doesn't
+  // pick a board for a plain one-off capture (yet) — fall back to the most
+  // recently created one so a quick shortcut press keeps working.
+  let boardId = fields.data.boardId;
+  if (boardId) {
+    const board = await prisma.board.findUnique({ where: { id: boardId } });
+    if (!board || board.userId !== userId) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Board not found" } },
+        { status: 404 },
+      );
+    }
+  } else {
+    const latestBoard = await prisma.board.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!latestBoard) {
+      return NextResponse.json(
+        { error: { code: "NO_BOARD", message: "No board to upload to" } },
+        { status: 400 },
+      );
+    }
+    boardId = latestBoard.id;
   }
 
   if (
@@ -119,7 +155,7 @@ export async function POST(req: Request) {
     dayEnd.setHours(23, 59, 59, 999);
 
     const lastToday = await prisma.screenshot.findFirst({
-      where: { userId, capturedAt: { gte: dayStart, lte: dayEnd } },
+      where: { boardId, capturedAt: { gte: dayStart, lte: dayEnd } },
       orderBy: { capturedAt: "desc" },
     });
 
@@ -127,7 +163,7 @@ export async function POST(req: Request) {
       boardX = lastToday.boardX + 40;
       boardY = lastToday.boardY + 40;
     } else {
-      const existingCount = await prisma.screenshot.count({ where: { userId } });
+      const existingCount = await prisma.screenshot.count({ where: { boardId } });
       const cascadeOffset = (existingCount % 10) * 40;
       boardX = cascadeOffset;
       boardY = cascadeOffset;
@@ -137,6 +173,7 @@ export async function POST(req: Request) {
   const screenshot = await prisma.screenshot.create({
     data: {
       userId,
+      boardId,
       storageKey,
       width: info.width,
       height: info.height,

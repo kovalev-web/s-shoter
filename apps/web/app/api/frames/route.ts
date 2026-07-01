@@ -15,7 +15,16 @@ export async function GET(req: Request) {
   const userId = await getCurrentUserId(req);
   if (!userId) return unauthorized();
 
-  const frames = await prisma.frame.findMany({ where: { userId } });
+  const { searchParams } = new URL(req.url);
+  const boardId = searchParams.get("boardId");
+  if (!boardId) {
+    return NextResponse.json(
+      { error: { code: "VALIDATION_ERROR", message: "Missing boardId" } },
+      { status: 400 },
+    );
+  }
+
+  const frames = await prisma.frame.findMany({ where: { userId, boardId } });
   return NextResponse.json({ items: frames.map(toFrameDto) });
 }
 
@@ -34,6 +43,14 @@ export async function POST(req: Request) {
         },
       },
       { status: 400 },
+    );
+  }
+
+  const board = await prisma.board.findUnique({ where: { id: parsed.data.boardId } });
+  if (!board || board.userId !== userId) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Board not found" } },
+      { status: 404 },
     );
   }
 

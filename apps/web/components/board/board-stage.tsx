@@ -34,11 +34,12 @@ function isScreenshotInFrame(screenshot: ScreenshotDto, frame: FrameDto): boolea
 }
 
 interface BoardStageProps {
+  boardId: string;
   initialScreenshots: ScreenshotDto[];
   initialFrames: FrameDto[];
 }
 
-export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProps) {
+export function BoardStage({ boardId, initialScreenshots, initialFrames }: BoardStageProps) {
   const [screenshots, setScreenshots] = useState(initialScreenshots);
   const [frames, setFrames] = useState(initialFrames);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
@@ -122,7 +123,7 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
 
     async function fetchNew() {
       try {
-        const res = await fetch("/api/screenshots");
+        const res = await fetch(`/api/screenshots?boardId=${boardId}`);
         if (!res.ok) return;
         const data = await res.json();
         const items: ScreenshotDto[] = data.items;
@@ -148,7 +149,7 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [theme]);
+  }, [theme, boardId]);
 
   useEffect(() => {
     const timers = saveTimers.current;
@@ -253,6 +254,7 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
   async function handleUpload(file: File) {
     const body = new FormData();
     body.append("file", file);
+    body.append("boardId", boardId);
     body.append("sourceUrl", "https://manual.upload");
     body.append("pageTitle", file.name || "Снимок экрана");
     body.append("capturedAt", new Date().toISOString());
@@ -311,6 +313,7 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          boardId,
           name: "Новая зона",
           x,
           y,

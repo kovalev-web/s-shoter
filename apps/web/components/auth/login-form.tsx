@@ -37,7 +37,7 @@ export function LoginForm() {
         setFormError("Неверный email или пароль");
         return;
       }
-      router.push(routes.board);
+      router.push(routes.boards);
       router.refresh();
     } finally {
       setIsSubmitting(false);

@@ -7,7 +7,7 @@ import { routes } from "@/config/site";
 
 export default async function LoginPage() {
   const session = await auth();
-  if (session) redirect(routes.board);
+  if (session) redirect(routes.boards);
 
   return (
     <AuthCard
