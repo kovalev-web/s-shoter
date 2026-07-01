@@ -1,6 +1,8 @@
 import "./styles.css";
 import { getAccessToken, setAccessToken, clearAccessToken } from "./storage";
-import { login, fetchToday, uploadScreenshot, fetchAuthorizedImageUrl, AuthError, type TodayItem } from "./api";
+import { login, fetchToday, fetchAuthorizedImageUrl, AuthError, type TodayItem } from "./api";
+import { captureActiveTab } from "./capture";
+import { BOARD_URL } from "./config";
 
 const app = document.getElementById("app");
 if (!app) throw new Error("Missing #app root element");
@@ -53,13 +55,21 @@ async function renderMain(token: string) {
   app!.innerHTML = `
     <div class="flex items-center justify-between">
       <span id="today-count" class="text-sm font-medium">Сегодня: …</span>
-      <button id="logout" class="text-xs text-muted-foreground underline underline-offset-4">Выйти</button>
+      <div class="flex items-center gap-3">
+        <button id="open-board" class="text-xs text-muted-foreground underline underline-offset-4">Доска</button>
+        <button id="logout" class="text-xs text-muted-foreground underline underline-offset-4">Выйти</button>
+      </div>
     </div>
     <button id="capture"
       class="h-9 rounded-md bg-primary text-sm font-medium text-primary-foreground">Сохранить скриншот</button>
+    <div id="shortcut-hint" class="flex items-center justify-center gap-2 text-xs text-muted-foreground"></div>
     <p id="status" class="hidden text-xs"></p>
     <div id="today-list" class="flex max-h-64 flex-col gap-2 overflow-y-auto"></div>
   `;
+
+  document.getElementById("open-board")?.addEventListener("click", () => {
+    void chrome.tabs.create({ url: BOARD_URL });
+  });
 
   document.getElementById("logout")?.addEventListener("click", async () => {
     await clearAccessToken();
@@ -70,7 +80,35 @@ async function renderMain(token: string) {
     void handleCapture(token);
   });
 
+  void renderShortcutHint();
   await refreshToday(token);
+}
+
+async function renderShortcutHint(): Promise<void> {
+  const hintEl = document.getElementById("shortcut-hint");
+  if (!hintEl) return;
+
+  // chrome.commands can be momentarily undefined right after the manifest gains
+  // the "commands" key but before a full extension reload — guard so we never
+  // throw an uncaught rejection here.
+  const shortcut = chrome.commands
+    ? (await chrome.commands.getAll()).find((c) => c.name === "capture-screenshot")?.shortcut
+    : undefined;
+
+  const label = document.createElement("span");
+  label.textContent = shortcut ? `Быстрый снимок: ${shortcut}` : "Горячая клавиша не задана";
+
+  // Chrome forbids setting command shortcuts programmatically, so send the user
+  // to the built-in rebind page. A plain <a href="chrome://…"> would be blocked;
+  // chrome.tabs.create is allowed from the extension's own popup.
+  const editBtn = document.createElement("button");
+  editBtn.className = "underline underline-offset-4";
+  editBtn.textContent = shortcut ? "Изменить" : "Задать";
+  editBtn.addEventListener("click", () => {
+    void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+  });
+
+  hintEl.replaceChildren(label, editBtn);
 }
 
 async function refreshToday(token: string) {
@@ -127,18 +165,7 @@ async function handleCapture(token: string) {
   statusEl.className = "text-xs text-muted-foreground";
 
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url) throw new Error("Не удалось получить вкладку");
-
-    // JPEG instead of PNG: PNG compresses photographic/gradient page content
-    // poorly (multi-MB files), which made the board and detail view janky
-    // decoding it. JPEG at high quality is visually lossless for a reference
-    // screenshot and a fraction of the size.
-    const dataUrl = await chrome.tabs.captureVisibleTab({ format: "jpeg", quality: 90 });
-    const blob = await (await fetch(dataUrl)).blob();
-    const capturedAt = new Date().toISOString();
-
-    await uploadScreenshot(token, blob, tab.url, tab.title ?? tab.url, capturedAt);
+    await captureActiveTab(token);
 
     statusEl.textContent = "Сохранено";
     statusEl.className = "text-xs text-primary";

@@ -6,6 +6,19 @@
   "action": {
     "default_popup": "popup.html"
   },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "commands": {
+    "capture-screenshot": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Сохранить скриншот текущей вкладки"
+    }
+  },
   "permissions": ["activeTab", "storage"],
   "host_permissions": ["http://localhost:3000/*"]
 }
