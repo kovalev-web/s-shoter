@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "s-shoter",
+  "version": "0.1.0",
+  "description": "Сохраняй скриншоты с контекстом на бесконечную доску",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["http://localhost:3000/*"]
+}

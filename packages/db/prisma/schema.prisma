@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  screenshots  Screenshot[]
+}
+
+model Screenshot {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // файл
+  storageKey  String   @unique
+  width       Int
+  height      Int
+  mimeType    String   @default("image/png")
+
+  // контекст
+  sourceUrl   String
+  pageTitle   String
+  capturedAt  DateTime
+
+  // позиция на доске
+  boardX      Float    @default(0)
+  boardY      Float    @default(0)
+  boardScale  Float    @default(1)
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId, capturedAt])
+}

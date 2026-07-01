@@ -1,0 +1,14 @@
+{
+  "name": "s-shoter",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm -r lint",
+    "db:migrate": "pnpm --filter @s-shoter/db exec prisma migrate dev",
+    "db:generate": "pnpm --filter @s-shoter/db exec prisma generate"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
