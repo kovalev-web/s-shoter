@@ -6,27 +6,38 @@ import type Konva from "konva";
 import { toast } from "sonner";
 import { getCanvasTheme, type CanvasTheme } from "@/lib/canvas-theme";
 import type { ScreenshotDto } from "@/lib/screenshot-dto";
+import type { FrameDto } from "@/lib/frame-dto";
 import { ScreenshotCard } from "@/components/board/screenshot-card";
 import { ScreenshotDetailDialog } from "@/components/board/screenshot-detail-dialog";
 import { BoardEmptyState } from "@/components/board/board-empty-state";
 import { BoardUpload } from "@/components/board/board-upload";
+import { BoardToolbar } from "@/components/board/board-toolbar";
+import { AddFrameButton } from "@/components/board/add-frame-button";
+import { FrameShape } from "@/components/board/frame-shape";
+import { FrameRenameDialog } from "@/components/board/frame-rename-dialog";
 import { GridOverlay } from "@/components/board/grid-overlay";
 import { MIN_SCALE, MAX_SCALE } from "@/components/board/board-constants";
 
 const ZOOM_STEP = 1.05 ** 2;
 const POSITION_SAVE_DEBOUNCE_MS = 500;
+const DEFAULT_FRAME_WIDTH = 320;
+const DEFAULT_FRAME_HEIGHT = 220;
 
 interface BoardStageProps {
   initialScreenshots: ScreenshotDto[];
+  initialFrames: FrameDto[];
 }
 
-export function BoardStage({ initialScreenshots }: BoardStageProps) {
+export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProps) {
   const [screenshots, setScreenshots] = useState(initialScreenshots);
+  const [frames, setFrames] = useState(initialFrames);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [theme, setTheme] = useState<CanvasTheme | null>(null);
   const [activeScreenshot, setActiveScreenshot] = useState<ScreenshotDto | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+  const [frameToRename, setFrameToRename] = useState<FrameDto | null>(null);
 
   const stageRef = useRef<Konva.Stage>(null);
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -124,19 +135,21 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
     };
   }, []);
 
-  // Удаление выделенного скриншота по Delete
+  // Удаление выделенного скриншота/зоны по Delete
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const selectedFrameIdRef = useRef(selectedFrameId);
+  selectedFrameIdRef.current = selectedFrameId;
   const isDeletingRef = useRef(isDeleting);
   isDeletingRef.current = isDeleting;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (
-        (e.key === "Delete" || e.key === "Backspace") &&
-        selectedIdRef.current &&
-        !isDeletingRef.current
-      ) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      if (selectedFrameIdRef.current) {
+        void handleDeleteFrame(selectedFrameIdRef.current);
+      } else if (selectedIdRef.current && !isDeletingRef.current) {
         handleDelete(selectedIdRef.current);
       }
     }
@@ -208,9 +221,10 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
   }
 
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
-    // Снять выделение при клике на пустое место (не на карточку)
+    // Снять выделение при клике на пустое место (не на карточку/зону)
     if (e.target === e.target.getStage() || e.target.name() === "stage-layer") {
       setSelectedId(null);
+      setSelectedFrameId(null);
     }
   }
 
@@ -259,6 +273,90 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
     }
   }
 
+  async function handleAddFrame() {
+    const stage = stageRef.current;
+    let x = 0;
+    let y = 0;
+    if (stage) {
+      const cx = viewport.width / 2;
+      const cy = viewport.height / 2;
+      x = Math.round((cx - stage.x()) / stage.scaleX() - DEFAULT_FRAME_WIDTH / 2);
+      y = Math.round((cy - stage.y()) / stage.scaleY() - DEFAULT_FRAME_HEIGHT / 2);
+    }
+
+    try {
+      const res = await fetch("/api/frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Новая зона",
+          x,
+          y,
+          width: DEFAULT_FRAME_WIDTH,
+          height: DEFAULT_FRAME_HEIGHT,
+        }),
+      });
+      if (!res.ok) throw new Error("create failed");
+      const created: FrameDto = await res.json();
+      setFrames((prev) => [...prev, created]);
+      setSelectedFrameId(created.id);
+      setSelectedId(null);
+    } catch {
+      toast.error("Не удалось создать зону");
+    }
+  }
+
+  function handleFrameSelect(id: string) {
+    setSelectedFrameId(id);
+    setSelectedId(null);
+  }
+
+  async function handleFrameChange(
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) {
+    setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, x, y, width, height } : f)));
+    try {
+      const res = await fetch(`/api/frames/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x, y, width, height }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      toast.error("Не удалось сохранить зону");
+    }
+  }
+
+  async function handleFrameRenameSave(id: string, name: string) {
+    setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
+    setFrameToRename(null);
+    try {
+      const res = await fetch(`/api/frames/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      toast.error("Не удалось переименовать зону");
+    }
+  }
+
+  async function handleDeleteFrame(id: string) {
+    try {
+      const res = await fetch(`/api/frames/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+      setFrames((prev) => prev.filter((f) => f.id !== id));
+      setSelectedFrameId(null);
+    } catch {
+      toast.error("Не удалось удалить зону");
+    }
+  }
+
   if (!theme || viewport.width === 0) {
     return <div className="flex-1 bg-background" />;
   }
@@ -279,6 +377,17 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
         onTap={handleStageClick}
       >
         <Layer>
+          {frames.map((frame) => (
+            <FrameShape
+              key={frame.id}
+              frame={frame}
+              theme={theme}
+              isSelected={selectedFrameId === frame.id}
+              onSelect={handleFrameSelect}
+              onChange={handleFrameChange}
+              onRename={setFrameToRename}
+            />
+          ))}
           {screenshots.map((screenshot) => (
             <ScreenshotCard
               key={screenshot.id}
@@ -286,7 +395,10 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
               theme={theme}
               isSelected={selectedId === screenshot.id}
               onDragEnd={handleCardDragEnd}
-              onSelect={(s) => setSelectedId(s.id)}
+              onSelect={(s) => {
+                setSelectedId(s.id);
+                setSelectedFrameId(null);
+              }}
               onOpen={setActiveScreenshot}
             />
           ))}
@@ -295,7 +407,10 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
 
       {screenshots.length === 0 ? <BoardEmptyState /> : null}
 
-      <BoardUpload onUpload={handleUpload} />
+      <BoardToolbar>
+        <AddFrameButton onAdd={handleAddFrame} />
+        <BoardUpload onUpload={handleUpload} />
+      </BoardToolbar>
 
       <ScreenshotDetailDialog
         screenshot={activeScreenshot}
@@ -304,6 +419,14 @@ export function BoardStage({ initialScreenshots }: BoardStageProps) {
         }}
         onDelete={handleDelete}
         isDeleting={isDeleting}
+      />
+
+      <FrameRenameDialog
+        frame={frameToRename}
+        onOpenChange={(open) => {
+          if (!open) setFrameToRename(null);
+        }}
+        onSave={handleFrameRenameSave}
       />
     </div>
   );

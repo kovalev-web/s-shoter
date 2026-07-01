@@ -13,6 +13,7 @@ model User {
   passwordHash String
   createdAt    DateTime     @default(now())
   screenshots  Screenshot[]
+  frames       Frame[]
 }
 
 model Screenshot {
@@ -39,4 +40,23 @@ model Screenshot {
   createdAt   DateTime @default(now())
 
   @@index([userId, capturedAt])
+}
+
+// Именованная зона на доске для визуальной группировки скриншотов при
+// сравнении паттернов (см. SPEC §12.2). Первая версия — чисто визуальный
+// маркер: принадлежность скриншотов зоне не отслеживается.
+model Frame {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  x         Float
+  y         Float
+  width     Float
+  height    Float
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

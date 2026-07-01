@@ -10,7 +10,7 @@ export default async function BoardLayout({ children }: { children: React.ReactN
   return (
     <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr]">
       <SiteHeader />
-      <div className="relative min-h-0">{children}</div>
+      <div className="relative flex min-h-0">{children}</div>
     </div>
   );
 }
