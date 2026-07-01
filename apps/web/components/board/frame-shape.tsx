@@ -17,6 +17,11 @@ interface FrameShapeProps {
   onSelect: (id: string) => void;
   onChange: (id: string, x: number, y: number, width: number, height: number) => void;
   onRename: (frame: FrameDto) => void;
+  // Live drag hooks so the board can carry contained screenshots along with
+  // the frame (Figma/Miro "frame" behavior), separate from the final commit
+  // in onChange which also fires after a resize (no card movement then).
+  onGroupDragStart: (frame: FrameDto) => void;
+  onGroupDragMove: (frame: FrameDto, dx: number, dy: number) => void;
 }
 
 export function FrameShape({
@@ -26,6 +31,8 @@ export function FrameShape({
   onSelect,
   onChange,
   onRename,
+  onGroupDragStart,
+  onGroupDragMove,
 }: FrameShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
   const trRef = useRef<Konva.Transformer>(null);
@@ -84,6 +91,10 @@ export function FrameShape({
         onTap={select}
         onDblClick={rename}
         onDblTap={rename}
+        onDragStart={() => onGroupDragStart(frame)}
+        onDragMove={(e: Konva.KonvaEventObject<DragEvent>) => {
+          onGroupDragMove(frame, e.target.x() - frame.x, e.target.y() - frame.y);
+        }}
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >

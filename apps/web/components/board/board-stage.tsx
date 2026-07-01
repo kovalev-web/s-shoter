@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { getCanvasTheme, type CanvasTheme } from "@/lib/canvas-theme";
 import type { ScreenshotDto } from "@/lib/screenshot-dto";
 import type { FrameDto } from "@/lib/frame-dto";
-import { ScreenshotCard } from "@/components/board/screenshot-card";
+import { ScreenshotCard, CARD_WIDTH, CARD_HEIGHT } from "@/components/board/screenshot-card";
 import { ScreenshotDetailDialog } from "@/components/board/screenshot-detail-dialog";
 import { BoardEmptyState } from "@/components/board/board-empty-state";
 import { BoardUpload } from "@/components/board/board-upload";
@@ -22,6 +22,16 @@ const ZOOM_STEP = 1.05 ** 2;
 const POSITION_SAVE_DEBOUNCE_MS = 500;
 const DEFAULT_FRAME_WIDTH = 320;
 const DEFAULT_FRAME_HEIGHT = 220;
+
+// A card "belongs" to a frame if its center point falls inside the frame's
+// rectangle — same heuristic Figma/Miro use for frame membership.
+function isScreenshotInFrame(screenshot: ScreenshotDto, frame: FrameDto): boolean {
+  const cx = screenshot.boardX + CARD_WIDTH / 2;
+  const cy = screenshot.boardY + CARD_HEIGHT / 2;
+  return (
+    cx >= frame.x && cx <= frame.x + frame.width && cy >= frame.y && cy <= frame.y + frame.height
+  );
+}
 
 interface BoardStageProps {
   initialScreenshots: ScreenshotDto[];
@@ -43,6 +53,18 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const didFitRef = useRef(false);
   const cascadeCount = useRef(0);
+  const screenshotNodesRef = useRef<Map<string, Konva.Group>>(new Map());
+  const frameDragRef = useRef<{
+    frameId: string;
+    originX: number;
+    originY: number;
+    items: { id: string; startX: number; startY: number }[];
+  } | null>(null);
+
+  function registerScreenshotNode(id: string, node: Konva.Group | null) {
+    if (node) screenshotNodesRef.current.set(id, node);
+    else screenshotNodesRef.current.delete(id);
+  }
 
   useEffect(() => {
     setTheme(getCanvasTheme());
@@ -311,6 +333,32 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
     setSelectedId(null);
   }
 
+  // Snapshot which cards are inside the frame right as the drag begins, so
+  // moving the frame carries exactly that set along (matches Figma/Miro).
+  function handleFrameDragStart(frame: FrameDto) {
+    const contained = screenshots.filter((s) => isScreenshotInFrame(s, frame));
+    frameDragRef.current = {
+      frameId: frame.id,
+      originX: frame.x,
+      originY: frame.y,
+      items: contained.map((s) => ({ id: s.id, startX: s.boardX, startY: s.boardY })),
+    };
+  }
+
+  // Move the contained cards' Konva nodes directly during the drag — same
+  // "Konva owns the live transform" pattern already used for card dragging,
+  // avoids re-rendering React on every pointer move.
+  function handleFrameDragMove(frame: FrameDto, dx: number, dy: number) {
+    const drag = frameDragRef.current;
+    if (!drag || drag.frameId !== frame.id) return;
+
+    for (const item of drag.items) {
+      const node = screenshotNodesRef.current.get(item.id);
+      node?.position({ x: item.startX + dx, y: item.startY + dy });
+    }
+    stageRef.current?.batchDraw();
+  }
+
   async function handleFrameChange(
     id: string,
     x: number,
@@ -319,6 +367,25 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
     height: number,
   ) {
     setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, x, y, width, height } : f)));
+
+    const drag = frameDragRef.current;
+    frameDragRef.current = null;
+
+    if (drag && drag.frameId === id && drag.items.length > 0) {
+      const dx = x - drag.originX;
+      const dy = y - drag.originY;
+
+      setScreenshots((prev) =>
+        prev.map((s) => {
+          const item = drag.items.find((i) => i.id === s.id);
+          return item ? { ...s, boardX: item.startX + dx, boardY: item.startY + dy } : s;
+        }),
+      );
+      for (const item of drag.items) {
+        schedulePositionSave(item.id, item.startX + dx, item.startY + dy);
+      }
+    }
+
     try {
       const res = await fetch(`/api/frames/${id}`, {
         method: "PATCH",
@@ -386,6 +453,8 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
               onSelect={handleFrameSelect}
               onChange={handleFrameChange}
               onRename={setFrameToRename}
+              onGroupDragStart={handleFrameDragStart}
+              onGroupDragMove={handleFrameDragMove}
             />
           ))}
           {screenshots.map((screenshot) => (
@@ -400,6 +469,7 @@ export function BoardStage({ initialScreenshots, initialFrames }: BoardStageProp
                 setSelectedFrameId(null);
               }}
               onOpen={setActiveScreenshot}
+              registerNode={registerScreenshotNode}
             />
           ))}
         </Layer>

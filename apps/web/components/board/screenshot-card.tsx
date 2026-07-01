@@ -7,8 +7,8 @@ import type Konva from "konva";
 import type { CanvasTheme } from "@/lib/canvas-theme";
 import type { ScreenshotDto } from "@/lib/screenshot-dto";
 
-const CARD_WIDTH = 220;
-const CARD_HEIGHT = 160;
+export const CARD_WIDTH = 220;
+export const CARD_HEIGHT = 160;
 const PADDING = 8;
 const TITLE_HEIGHT = 28;
 const IMAGE_BOX_HEIGHT = CARD_HEIGHT - TITLE_HEIGHT;
@@ -20,6 +20,9 @@ interface ScreenshotCardProps {
   onDragEnd: (id: string, x: number, y: number) => void;
   onSelect: (screenshot: ScreenshotDto) => void;
   onOpen: (screenshot: ScreenshotDto) => void;
+  // Exposes the underlying Konva node so a parent Frame drag can move
+  // contained cards live, without routing every frame during the frame drag.
+  registerNode?: (id: string, node: Konva.Group | null) => void;
 }
 
 export function ScreenshotCard({
@@ -29,6 +32,7 @@ export function ScreenshotCard({
   onDragEnd,
   onSelect,
   onOpen,
+  registerNode,
 }: ScreenshotCardProps) {
   const [image] = useImage(screenshot.imageUrl, "anonymous");
   const dragMoved = useRef(false);
@@ -58,6 +62,7 @@ export function ScreenshotCard({
 
   return (
     <Group
+      ref={(node) => registerNode?.(screenshot.id, node)}
       x={position.x}
       y={position.y}
       draggable
