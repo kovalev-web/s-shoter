@@ -36,11 +36,17 @@ export function FrameShape({
 }: FrameShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  const fillRectRef = useRef<Konva.Rect>(null);
+  const borderRectRef = useRef<Konva.Rect>(null);
 
   // Uncontrolled size after mount, same rationale as ScreenshotCard: Konva
   // owns the live transform during drag/resize, React state only mirrors it
   // for the sibling Rect/Text so they redraw with the new dimensions.
   const [size, setSize] = useState({ width: frame.width, height: frame.height });
+  // Tracks the size computed on the most recent onTransform tick, so
+  // onTransformEnd can commit it without re-deriving from scale (which this
+  // component already resets to 1 on every tick — see handleTransform).
+  const liveSizeRef = useRef(size);
 
   useEffect(() => {
     if (isSelected && groupRef.current && trRef.current) {
@@ -49,17 +55,33 @@ export function FrameShape({
     }
   }, [isSelected]);
 
+  function handleTransform() {
+    const node = groupRef.current;
+    if (!node) return;
+
+    // Konva's Transformer resizes by scaling the whole node, which would
+    // stretch the dashed stroke and the label text for the duration of the
+    // drag. Convert scale -> width/height on every tick (not only at the
+    // end) so only the rect grows — the recommended pattern for resizable
+    // Konva shapes.
+    const width = Math.max(FRAME_MIN_WIDTH, size.width * node.scaleX());
+    const height = Math.max(FRAME_MIN_HEIGHT, size.height * node.scaleY());
+    node.scaleX(1);
+    node.scaleY(1);
+
+    fillRectRef.current?.width(width);
+    fillRectRef.current?.height(height);
+    borderRectRef.current?.width(width);
+    borderRectRef.current?.height(height);
+    liveSizeRef.current = { width, height };
+    node.getLayer()?.batchDraw();
+  }
+
   function handleTransformEnd() {
     const node = groupRef.current;
     if (!node) return;
 
-    const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
-    node.scaleX(1);
-    node.scaleY(1);
-
-    const width = Math.max(FRAME_MIN_WIDTH, size.width * scaleX);
-    const height = Math.max(FRAME_MIN_HEIGHT, size.height * scaleY);
+    const { width, height } = liveSizeRef.current;
     setSize({ width, height });
     onChange(frame.id, node.x(), node.y(), width, height);
   }
@@ -96,9 +118,11 @@ export function FrameShape({
           onGroupDragMove(frame, e.target.x() - frame.x, e.target.y() - frame.y);
         }}
         onDragEnd={handleDragEnd}
+        onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
       >
         <Rect
+          ref={fillRectRef}
           width={size.width}
           height={size.height}
           fill={theme.mutedForeground}
@@ -106,6 +130,7 @@ export function FrameShape({
           cornerRadius={CORNER_RADIUS}
         />
         <Rect
+          ref={borderRectRef}
           width={size.width}
           height={size.height}
           fillEnabled={false}
@@ -127,7 +152,7 @@ export function FrameShape({
         <Transformer
           ref={trRef}
           rotateEnabled={false}
-          enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right"]}
+          keepRatio={false}
           anchorStroke={theme.primary}
           anchorFill={theme.card}
           borderStroke={theme.primary}
