@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import sharp from "sharp";
+import sharp, { type OutputInfo } from "sharp";
 import { prisma } from "@s-shoter/db";
 import {
   ALLOWED_SCREENSHOT_MIME_TYPES,
@@ -86,15 +86,25 @@ export async function POST(req: Request) {
   }
 
   const rawBuffer = Buffer.from(await file.arrayBuffer());
-  const { data: buffer, info } = await sharp(rawBuffer)
-    .resize({
-      width: MAX_IMAGE_DIMENSION,
-      height: MAX_IMAGE_DIMENSION,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .jpeg({ quality: JPEG_QUALITY })
-    .toBuffer({ resolveWithObject: true });
+  let buffer: Buffer;
+  let info: OutputInfo;
+  try {
+    ({ data: buffer, info } = await sharp(rawBuffer)
+      .resize({
+        width: MAX_IMAGE_DIMENSION,
+        height: MAX_IMAGE_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: JPEG_QUALITY })
+      .toBuffer({ resolveWithObject: true }));
+  } catch {
+    // Corrupt or unreadable image data — reject cleanly instead of 500-ing.
+    return NextResponse.json(
+      { error: { code: "INVALID_IMAGE", message: "Image could not be processed" } },
+      { status: 400 },
+    );
+  }
 
   const storageKey = `${randomUUID()}.jpg`;
   await saveScreenshotFile(storageKey, buffer);
